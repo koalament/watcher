@@ -101,7 +101,18 @@ function loop(retry) {
 
               return;
             }
-            let decodedTx = hex_decoder.decodeRawUTXO(tx.hex);
+            let decodedTx = undefined;
+            let error = undefined;
+            try {
+              decodedTx = hex_decoder.decodeRawUTXO(tx.hex);
+            } catch (e) {
+              console.log(e);
+            }
+            if (!decodedTx) {
+              cb(undefined);
+
+              return;
+            }
             const s = new Buffer(decodedTx.outs[0].script.split(" ").pop(), 'hex').toString('utf8');
             const first_space = s.indexOf(" ");
             const label = s.substring(0, first_space);
