@@ -48,8 +48,10 @@ function exec(command, callback, retry) {
     }
     stream.on('close', function (code, signal) {
       if (code !== 0) {
-        callback_fired = true;
-        callback(new Error(`Exit with ${code} code and ${signal} signal`));
+        if (!callback_fired) {
+          callback_fired = true;
+          callback(new Error(`Exit with ${code} code and ${signal} signal`));
+        }
 
         return;
       }
@@ -64,8 +66,10 @@ function exec(command, callback, retry) {
       data += value.toString();
     }).stderr.on('data', function (data) {
       console.log('STDERR: ' + data);
-      callback_fired = true;
-      callback(new Error(data));
+      if (!callback_fired) {
+        callback_fired = true;
+        callback(new Error(data));
+      }
     });
   })
 }
