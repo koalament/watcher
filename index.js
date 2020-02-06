@@ -17,17 +17,24 @@ let last_mempool = [];
 
 function getTransaction(tx_id, callback) {
   consoleLogger.info(tx_id)
+  let callBacked = false;
   bitcoin_rpc.call('getrawtransaction', [tx_id, 1], (err, res) => {
+    if (callBacked) {
+      return;
+    }
     if (err) {
+      callBacked = true;
       callback(err);
 
       return;
     }
     if (!res || !res.result) {
+      callBacked = true;
       callback(new Error("No data!"));
 
       return;
     }
+    callBacked = true;
     callback(res.result);
   })
 }
