@@ -16,13 +16,14 @@ const io = require('socket.io').listen(socket_app);
 let last_mempool = [];
 
 function getTransaction(tx_id, callback) {
+  consoleLogger.info(tx_id)
   bitcoin_rpc.call('getrawtransaction', [tx_id, 1], (err, res) => {
     if (err) {
       callback(err);
 
       return;
     }
-    if (res && res.result) {
+    if (!res || !res.result) {
       callback(new Error("No data!"));
 
       return;
@@ -35,7 +36,11 @@ function loop() {
   bitcoin_rpc.call('getrawmempool', [], (err, res) => {
     if (err) {
       consoleLogger.error(err);
-      throw err;
+      consoleLogger.error("retry getrawmempool")
+      setTimeout(() => {
+        loop();
+      }, 1000);
+      return;
     }
     if (!res || !res.result) {
       throw new Error("No data!");
@@ -72,10 +77,15 @@ function loop() {
               return;
             }
             io.sockets.emit("tx:*", tx, decodedTx);
-            io.sockets.emit(label, tx);
+            io.sockets.emit(label, tx, decodedTx);
+            cb(undefined);
           })
         }
-        async.eachLimit(difference, 5, fn, () => { })
+        async.eachLimit(difference, 1, fn, () => {
+          setTimeout(() => {
+            loop();
+          }, parseInt(process.env.WATCH_MEMPOOL_INTERVAL));
+        })
       }
     }
     last_mempool = mem_pool;
