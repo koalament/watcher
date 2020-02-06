@@ -5,6 +5,7 @@ const bitcoin_rpc = require('node-bitcoin-rpc');
 const http = require('http');
 const express = require('express');
 const app = express();
+const consoleLogger = require("tracer").colorConsole({ level: "info" });
 const socket_app = http.createServer(function (req, res) {
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end();
@@ -33,7 +34,7 @@ function getTransaction(tx_id, callback) {
 function loop() {
   bitcoin_rpc.call('getrawmempool', [], (err, res) => {
     if (err) {
-      console.log(err);
+      consoleLogger.error(err);
       throw err;
     }
     if (!res || !res.result) {
@@ -43,7 +44,7 @@ function loop() {
     if (last_mempool.length !== 0) {
       const difference = _.xor(last_mempool, mem_pool);
       if (difference.length > 0) {
-        console.log(difference)
+        consoleLogger.info(difference)
         function fn(tx_id, cb) {
           getTransaction(tx_id, (err, tx) => {
             if (err) {
@@ -55,7 +56,7 @@ function loop() {
             try {
               decodedTx = hex_decoder.decodeRawUTXO(tx.hex);
             } catch (e) {
-              console.log(e);
+              consoleLogger.error(e);
             }
             if (!decodedTx) {
               cb(undefined);
@@ -84,12 +85,12 @@ function loop() {
 }
 
 io.sockets.on('connection', function (socket) {
-  console.log("CLIENTS ", io.engine.clientsCount)
+  consoleLogger.info("CLIENTS ", io.engine.clientsCount)
 
   socket.on('disconnect', function () {
     socket.disconnect(0);
-    console.log("CLIENTS ", io.sockets.clients.length)
-    console.log('User disconnected');
+    consoleLogger.info("CLIENTS ", io.sockets.clients.length)
+    consoleLogger.info('User disconnected');
   });
 });
 
@@ -105,11 +106,11 @@ app.get('/transaction/:tx_id', function (req, res, next) {
 });
 
 socket_app.listen(parseInt(process.env.SOCKET_PORT), process.env.HOST, () => {
-  console.log(`Socket is listening on port ${process.env.SOCKET_PORT}`);
+  consoleLogger.info(`Socket is listening on port ${process.env.SOCKET_PORT}`);
 });
 
 app.listen(parseInt(process.env.EXPRESS_PORT), process.env.HOST, () => {
-  console.log(`App is listening on port ${process.env.EXPRESS_PORT}`);
+  consoleLogger.info(`App is listening on port ${process.env.EXPRESS_PORT}`);
 });
 
 setTimeout(() => {
