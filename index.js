@@ -71,7 +71,7 @@ function loop() {
 
               return;
             }
-            io.sockets.emit("tx:*", tx);
+            io.sockets.emit("tx:*", tx, decodedTx);
             io.sockets.emit(label, tx);
           })
         }
