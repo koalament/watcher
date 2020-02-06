@@ -35,7 +35,7 @@ function getTransaction(tx_id, callback) {
       return;
     }
     callBacked = true;
-    callback(res.result);
+    callback(undefined, res.result);
   })
 }
 
