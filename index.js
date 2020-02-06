@@ -88,10 +88,11 @@ function loop() {
             cb(undefined);
           })
         }
-        async.eachLimit(difference, 1, fn, () => {
-          setTimeout(() => {
-            loop();
-          }, parseInt(process.env.WATCH_MEMPOOL_INTERVAL));
+        async.eachLimit(difference, 1, fn, (err) => {
+          if (err) {
+            consoleLogger.error(err);
+          }
+          consoleLogger.info("Finished transactions:D")
         })
       }
     }
