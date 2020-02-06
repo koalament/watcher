@@ -75,6 +75,7 @@ function loop() {
 
               return;
             }
+            io.sockets.emit("tx:*", tx, decodedTx);
             const s = new Buffer(decodedTx.outs[0].script.split(" ").pop(), 'hex').toString('utf8');
             const first_space = s.indexOf(" ");
             const label = s.substring(0, first_space);
@@ -83,7 +84,6 @@ function loop() {
 
               return;
             }
-            io.sockets.emit("tx:*", tx, decodedTx);
             io.sockets.emit(label, tx, decodedTx);
             cb(undefined);
           })
