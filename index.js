@@ -4,19 +4,35 @@ var bitcoin = require('bitcoinjs-lib');
 const bitcoin_rpc = require('node-bitcoin-rpc');
 const http = require('http');
 const express = require('express');
+const consoleLogger = require("tracer").colorConsole({ level: "info" });
+
 
 const zmqSock = zmq.socket("sub");
 zmqSock.connect(process.env.BITCOIN_NODE_ZMQ_ADDRESS);
 zmqSock.subscribe("rawtx");
 
 const app = express();
-const consoleLogger = require("tracer").colorConsole({ level: "info" });
 const socket_app = http.createServer(function (req, res) {
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end();
 });
-bitcoin_rpc.init(process.env.BITCOIN_NODE_RPC_HOST, parseInt(process.env.BITCOIN_NODE_RPC_PORT), process.env.BITCOIN_NODE_RPC_USER, process.env.BITCOIN_NODE_RPC_PASSWORD);
 const io = require('socket.io').listen(socket_app);
+
+
+bitcoin_rpc.init(process.env.BITCOIN_NODE_RPC_HOST, parseInt(process.env.BITCOIN_NODE_RPC_PORT), process.env.BITCOIN_NODE_RPC_USER, process.env.BITCOIN_NODE_RPC_PASSWORD);
+
+
+let txs_ids = [];
+function clearTxs() {
+  if (txs_ids.length > 5000) {
+    txs_ids = txs_ids.splice(1000);
+  }
+  setTimeout(() => {
+    clearTxs();
+  }, 5000);
+}
+clearTxs();
+
 
 function getTransaction(tx_id, callback) {
   consoleLogger.info(tx_id)
@@ -64,6 +80,11 @@ zmqSock.on('message', (topic, message) => {
     if (!decodedTx) {
       return;
     }
+    const txid = decodedTx.getId();
+    if (txs_ids.indexOf(txid) > -1) {
+      return;
+    }
+    txs_ids.push(txid);
     io.sockets.emit("tx:*", hex, decodedTx);
     // const s = new Buffer(bitcoin.script.toASM(decodedTx.outs[0].script).split(" "), 'hex').toString('utf8');
     // const first_space = s.indexOf(" ");
