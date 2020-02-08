@@ -1,6 +1,6 @@
 const _ = require("lodash");
 const zmq = require("zeromq");
-const hex_decoder = require("raw-transaction-hex-decoder");
+var bitcoin = require('bitcoinjs-lib');
 const bitcoin_rpc = require('node-bitcoin-rpc');
 const http = require('http');
 const express = require('express');
@@ -57,21 +57,26 @@ zmqSock.on('message', (topic, message) => {
     const hex = message;
     let decodedTx = undefined;
     try {
-      decodedTx = hex_decoder.decodeRawUTXO(hex);
+      decodedTx = bitcoin.Transaction.fromHex(hex);
     } catch (e) {
       consoleLogger.error(e);
     }
     if (!decodedTx) {
       return;
     }
-    io.sockets.emit("tx:*", { hex: hex }, decodedTx);
-    const s = new Buffer(decodedTx.outs[0].script.split(" ").pop(), 'hex').toString('utf8');
-    const first_space = s.indexOf(" ");
-    const label = s.substring(0, first_space);
+    io.sockets.emit("tx:*", hex, decodedTx);
+    // const s = new Buffer(bitcoin.script.toASM(decodedTx.outs[0].script).split(" "), 'hex').toString('utf8');
+    // const first_space = s.indexOf(" ");
+    // const label = s.substring(0, first_space);
+    const splitted = bitcoin.script.toASM(decodedTx.outs[0].script).toString().split(" ");
+    if (splitted.length < 2) {
+      return;
+    }
+    const label = new Buffer(splitted[2], "hex").toString("utf8").split(" ")[0];
     if (!label || label.trim() === "") {
       return;
     }
-    io.sockets.emit(label, { hex: hex }, decodedTx);
+    io.sockets.emit(label, hex, decodedTx);
   }
 })
 
