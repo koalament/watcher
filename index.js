@@ -94,6 +94,16 @@ zmqSock.on('message', (topic, message) => {
       return;
     }
     io.sockets.emit(label, hex, decodedTx);
+    decodedTx.ins.forEach(xin => {
+      let address;
+      try {
+        address = bitcoin.address.fromOutputScript(xin.script)
+      } catch (e) { }
+
+      if (address) {
+        io.sockets.emit(`address:in:${address}`, hex, decodedTx);
+      }
+    })
     decodedTx.outs.forEach(out => {
       let address;
       try {
@@ -101,7 +111,7 @@ zmqSock.on('message', (topic, message) => {
       } catch (e) { }
 
       if (address) {
-        io.sockets.emit(`address:${address}`, hex, decodedTx);
+        io.sockets.emit(`address:out:${address}`, hex, decodedTx);
       }
     })
   }
