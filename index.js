@@ -98,7 +98,7 @@ zmqSock.on('message', (topic, message) => {
       let address;
       try {
         address = bitcoin.address.fromOutputScript(out.script)
-      } catch (e) { consoleLogger.error(e) }
+      } catch (e) { }
 
       if (address) {
         io.sockets.emit(`address:${address}`, hex, decodedTx);
