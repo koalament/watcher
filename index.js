@@ -35,7 +35,6 @@ clearTxs();
 
 
 function getTransaction(tx_id, callback) {
-  consoleLogger.info(tx_id)
   let callBacked = false;
   bitcoin_rpc.call('getrawtransaction', [tx_id, 1], (err, res) => {
     if (callBacked) {
@@ -86,9 +85,6 @@ zmqSock.on('message', (topic, message) => {
     }
     txs_ids.push(txid);
     io.sockets.emit("tx:*", hex, decodedTx);
-    // const s = new Buffer(bitcoin.script.toASM(decodedTx.outs[0].script).split(" "), 'hex').toString('utf8');
-    // const first_space = s.indexOf(" ");
-    // const label = s.substring(0, first_space);
     const splitted = bitcoin.script.toASM(decodedTx.outs[0].script).toString().split(" ");
     if (splitted.length < 2) {
       return;
@@ -98,6 +94,16 @@ zmqSock.on('message', (topic, message) => {
       return;
     }
     io.sockets.emit(label, hex, decodedTx);
+    decodedTx.outs.forEach(out => {
+      let address;
+      try {
+        address = bitcoin.address.fromOutputScript(out.script)
+      } catch (e) { consoleLogger.error(e) }
+
+      if (address) {
+        io.sockets.emit(`address:${address}`, hex, decodedTx);
+      }
+    })
   }
 })
 
