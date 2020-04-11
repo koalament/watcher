@@ -1,11 +1,10 @@
 const _ = require("lodash");
 const zmq = require("zeromq");
-var bitcoin = require('bitcoinjs-lib');
 const bitcoin_rpc = require('node-bitcoin-rpc');
 const http = require('http');
 const express = require('express');
 const consoleLogger = require("tracer").colorConsole({ level: "info" });
-
+const bsv = require("bsv");
 
 const zmqSock = zmq.socket("sub");
 zmqSock.connect(process.env.BITCOIN_NODE_ZMQ_ADDRESS);
@@ -18,7 +17,7 @@ const socket_app = http.createServer(function (req, res) {
 });
 const io = require('socket.io').listen(socket_app);
 
-
+const network = (process.env.NETWORK === "test" ? bsv.Networks.testnet : bsv.Networks.mainnet);
 bitcoin_rpc.init(process.env.BITCOIN_NODE_RPC_HOST, parseInt(process.env.BITCOIN_NODE_RPC_PORT), process.env.BITCOIN_NODE_RPC_USER, process.env.BITCOIN_NODE_RPC_PASSWORD);
 
 
@@ -72,55 +71,54 @@ zmqSock.on('message', (topic, message) => {
     const hex = message;
     let decodedTx = undefined;
     try {
-      decodedTx = bitcoin.Transaction.fromHex(hex);
+      decodedTx = new bsv.Transaction(hex);
     } catch (e) {
       consoleLogger.error(e);
     }
     if (!decodedTx) {
       return;
     }
-    const txid = decodedTx.getId();
+    const txid = decodedTx.id;
     if (txs_ids.indexOf(txid) > -1) {
       return;
     }
     txs_ids.push(txid);
-    io.sockets.emit("tx:*", hex, decodedTx);
-    const splitted = bitcoin.script.toASM(decodedTx.outs[0].script).toString().split(" ");
-    if (splitted.length < 2) {
+    io.sockets.emit("tx:*", hex, decodedTx.toObject());
+    const hexSplitted = decodedTx.outputs[0].script.toASM().split(" ");
+    if (hexSplitted.length < 2) {
       return;
     }
-    const label = new Buffer(splitted[2], "hex").toString("utf8").split(" ")[0];
+    const splitted = Buffer.from(hexSplitted[2], "hex").toString("utf8").split(" ");
+    const label = splitted.shift();
     if (!label || label.trim() === "") {
       return;
     }
-    io.sockets.emit(label, hex, decodedTx);
+    io.sockets.emit(label, hex, decodedTx.toObject());
 
-    decodedTx.ins.forEach(xin => {
+    decodedTx.inputs.forEach(xin => {
       let address;
       try {
-        let inAddHex = Buffer.from(xin.script, "hex").toString("hex");
-        let pubkey = Buffer.from(inAddHex.slice(-66), 'hex')
-        address = bitcoin.payments.p2sh({ redeem: bitcoin.payments.p2wpkh({ pubkey }) }).address;
+        address = xin.script.toAddress(network).toString();
       } catch (e) { }
 
       if (address) {
-        io.sockets.emit(`address.in:${address}`, hex, decodedTx);
+        io.sockets.emit(`address.in:${address}`, hex, decodedTx.toObject());
       }
-    });
-    decodedTx.outs.forEach(out => {
+    })
+    decodedTx.outputs.forEach(out => {
       let address;
       try {
-        address = bitcoin.address.fromOutputScript(out.script)
+        address = out.script.toAddress(network).toString();
       } catch (e) { }
 
       if (address) {
-        io.sockets.emit(`address.out:${address}`, hex, decodedTx);
+        io.sockets.emit(`address.out:${address}`, hex, decodedTx.toObject());
       }
     })
   }
 })
 
-app.get('/transaction/:tx_id', function (req, res, next) {
+app.get('/transaction/:tx_id', function (req, res) {
   getTransaction(req.params.tx_id, (err, transaction) => {
     if (err) {
       res.sendStatus(400);
