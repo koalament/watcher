@@ -94,16 +94,19 @@ zmqSock.on('message', (topic, message) => {
       return;
     }
     io.sockets.emit(label, hex, decodedTx);
+
     decodedTx.ins.forEach(xin => {
       let address;
       try {
-        address = bitcoin.address.fromOutputScript(xin.script)
+        let inAddHex = Buffer.from(xin.script, "hex").toString("hex");
+        let pubkey = Buffer.from(inAddHex.slice(-66), 'hex')
+        address = bitcoin.payments.p2sh({ redeem: bitcoin.payments.p2wpkh({ pubkey }) }).address;
       } catch (e) { }
 
       if (address) {
-        io.sockets.emit(`address:in:${address}`, hex, decodedTx);
+        io.sockets.emit(`address.in:${address}`, hex, decodedTx);
       }
-    })
+    });
     decodedTx.outs.forEach(out => {
       let address;
       try {
@@ -111,7 +114,7 @@ zmqSock.on('message', (topic, message) => {
       } catch (e) { }
 
       if (address) {
-        io.sockets.emit(`address:out:${address}`, hex, decodedTx);
+        io.sockets.emit(`address.out:${address}`, hex, decodedTx);
       }
     })
   }
