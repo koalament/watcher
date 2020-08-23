@@ -84,7 +84,19 @@ zmqSock.on('message', (topic, message) => {
     }
     txs_ids.push(txid);
     io.sockets.emit("tx:*", hex, decodedTx.toObject());
-    const hexSplitted = decodedTx.outputs[0].script.toASM().split(" ");
+
+
+    let opOutput;
+    decodedTx.outputs.forEach((out) => {
+      if (out.satoshis === 0 && out.script.toASM().indexOf("0 OP_RETURN") === 0) {
+        opOutput = out.script.toASM();
+      }
+    });
+
+    if (!opOutput) {
+      return;
+    }
+    const hexSplitted = opOutput.split(" ");
     if (hexSplitted.length < 2) {
       return;
     }
