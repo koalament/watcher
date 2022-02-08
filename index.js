@@ -68,6 +68,7 @@ io.sockets.on('connection', function (socket) {
 
 zmqSock.on('message', (topic, message) => {
   if (topic.toString() === "rawtx") {
+
     const hex = message;
     let decodedTx = undefined;
     try {
@@ -83,29 +84,29 @@ zmqSock.on('message', (topic, message) => {
       return;
     }
     txs_ids.push(txid);
-    io.sockets.emit("tx:*", hex, decodedTx.toObject());
+    //io.sockets.emit("tx:*", hex, decodedTx.toObject());
 
 
-    let opOutput;
-    decodedTx.outputs.forEach((out) => {
-      if (out.satoshis === 0 && out.script.toASM().indexOf("0 OP_RETURN") === 0) {
-        opOutput = out.script.toASM();
-      }
-    });
+    // let opOutput;
+    // decodedTx.outputs.forEach((out) => {
+    //   if (out.satoshis === 0 && out.script.toASM().indexOf("0 OP_RETURN") === 0) {
+    //     opOutput = out.script.toASM();
+    //   }
+    // });
 
-    if (!opOutput) {
-      return;
-    }
-    const hexSplitted = opOutput.split(" ");
-    if (hexSplitted.length < 2) {
-      return;
-    }
-    const splitted = Buffer.from(hexSplitted[2], "hex").toString("utf8").split(" ");
-    const label = splitted.shift();
-    if (!label || label.trim() === "") {
-      return;
-    }
-    io.sockets.emit(label, hex, decodedTx.toObject());
+    // if (!opOutput) {
+    //   return;
+    // }
+    // const hexSplitted = opOutput.split(" ");
+    // if (hexSplitted.length < 2) {
+    //   return;
+    // }
+    // const splitted = Buffer.from(hexSplitted[2], "hex").toString("utf8").split(" ");
+    // const label = splitted.shift();
+    // if (!label || label.trim() === "") {
+    //   return;
+    // }
+    // io.sockets.emit(label, hex, decodedTx.toObject());
 
     decodedTx.inputs.forEach(xin => {
       let address;
