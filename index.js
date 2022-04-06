@@ -3,14 +3,17 @@ const zmq = require("zeromq");
 const bitcoin_rpc = require('node-bitcoin-rpc');
 const http = require('http');
 const express = require('express');
+const bodyParser = require('body-parser')
 const consoleLogger = require("tracer").colorConsole({ level: "info" });
 const bsv = require("bsv");
+const FastTTL = require("./libs/fast.ttl");
 
 const zmqSock = zmq.socket("sub");
 zmqSock.connect(process.env.BITCOIN_NODE_ZMQ_ADDRESS);
 zmqSock.subscribe("rawtx");
 
 const app = express();
+app.use(bodyParser.json());
 const socket_app = http.createServer(function (req, res) {
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end();
@@ -21,16 +24,7 @@ const network = (process.env.NETWORK === "test" ? bsv.Networks.testnet : bsv.Net
 bitcoin_rpc.init(process.env.BITCOIN_NODE_RPC_HOST, parseInt(process.env.BITCOIN_NODE_RPC_PORT), process.env.BITCOIN_NODE_RPC_USER, process.env.BITCOIN_NODE_RPC_PASSWORD);
 
 
-let txs_ids = [];
-function clearTxs() {
-  if (txs_ids.length > 5000) {
-    txs_ids = txs_ids.splice(1000);
-  }
-  setTimeout(() => {
-    clearTxs();
-  }, 5000);
-}
-clearTxs();
+let txs_ids = new FastTTL();
 
 
 function getTransaction(tx_id, callback) {
@@ -48,6 +42,34 @@ function getTransaction(tx_id, callback) {
     if (!res || !res.result) {
       callBacked = true;
       callback(new Error("No data!"));
+
+      return;
+    }
+    callBacked = true;
+    callback(undefined, res.result);
+  })
+}
+
+function broadcastTransaction(raw,callback){
+  let callBacked = false;
+  bitcoin_rpc.call('sendrawtransaction', [raw], (err, res) => {
+    if (callBacked) {
+      return;
+    }
+    if (err) {
+      callBacked = true;
+      callback(err);
+
+      return;
+    }
+    if (!res || !res.result) {
+      callBacked = true;
+      callback(new Error("No data!"));
+
+      return;
+    }
+    if(res && res.error){
+      callback(res);
 
       return;
     }
@@ -80,10 +102,10 @@ zmqSock.on('message', (topic, message) => {
       return;
     }
     const txid = decodedTx.id;
-    if (txs_ids.indexOf(txid) > -1) {
+    if (txs_ids.has(txid) ) {
       return;
     }
-    txs_ids.push(txid);
+    txs_ids.set(txid);
     //io.sockets.emit("tx:*", hex, decodedTx.toObject());
 
 
@@ -139,6 +161,17 @@ app.get('/transaction/:tx_id', function (req, res) {
       return;
     }
     res.send(transaction);
+  })
+});
+
+app.post('/broadcast', function (req, res) {
+  broadcastTransaction(req.body.raw, (err, txid) => {
+    if (err) {
+      res.sendStatus(400);
+
+      return;
+    }
+    res.send(txid);
   })
 });
 
